@@ -8,7 +8,7 @@ export function createEditorTheme(isDark: boolean): Extension {
     {
       '&': {
         fontSize: '14px',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
         height: '100%',
       },
       '.cm-scroller': {
@@ -88,9 +88,10 @@ export function createEditorTheme(isDark: boolean): Extension {
         textDecoration: 'line-through',
       },
       '.cm-code-inline': {
-        fontFamily: '"SF Mono", "JetBrains Mono", "Fira Code", monospace',
+        fontFamily: '"Source Code Pro", "Fira Code", "Courier New", Courier, monospace',
         fontSize: '0.9em',
-        backgroundColor: isDark ? '#313244' : '#f0f0f0',
+        color: isDark ? '#fab387' : '#c75c1e',
+        backgroundColor: isDark ? 'rgba(250, 179, 135, 0.1)' : 'rgba(199, 92, 30, 0.08)',
         padding: '2px 4px',
         borderRadius: '3px',
       },
@@ -153,7 +154,7 @@ export function createEditorTheme(isDark: boolean): Extension {
         borderColor: isDark ? '#7aa2f7' : '#0066cc',
       },
       '.cm-code-block': {
-        fontFamily: '"SF Mono", "JetBrains Mono", "Fira Code", monospace',
+        fontFamily: '"Source Code Pro", "Fira Code", "Courier New", Courier, monospace',
         fontSize: '0.9em',
         backgroundColor: isDark ? '#181825' : '#f5f5f5',
         borderRadius: '0',
@@ -212,7 +213,7 @@ export function createEditorTheme(isDark: boolean): Extension {
     { tag: tags.url, color: isDark ? '#74c7ec' : '#0284c7' },
     {
       tag: tags.monospace,
-      fontFamily: '"SF Mono", "JetBrains Mono", monospace',
+      fontFamily: '"Source Code Pro", "Fira Code", "Courier New", Courier, monospace',
       fontSize: '0.9em',
     },
     { tag: tags.meta, color: isDark ? '#6c7086' : '#999999' },

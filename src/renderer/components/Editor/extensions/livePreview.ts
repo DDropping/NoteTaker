@@ -358,19 +358,17 @@ function buildLivePreviewDecorations(view: EditorView): DecorationSet {
         }
 
         case 'ListMark': {
-          if (!cursorOnNode) {
-            const markerText = view.state.sliceDoc(node.from, node.to);
-            // Only replace unordered list markers (-, *, +), not ordered (1., 2., etc.)
-            if (/^[-*+]$/.test(markerText)) {
-              // Skip if this is a task list item (followed by space + "[")
-              const afterMark = view.state.sliceDoc(node.to, node.to + 2);
-              if (afterMark !== ' [') {
-                decorations.push(
-                  Decoration.replace({
-                    widget: new BulletWidget(),
-                  }).range(node.from, node.to)
-                );
-              }
+          const markerText = view.state.sliceDoc(node.from, node.to);
+          // Only replace unordered list markers (-, *, +), not ordered (1., 2., etc.)
+          if (/^[-*+]$/.test(markerText)) {
+            // Skip if this is a task list item (followed by space + "[")
+            const afterMark = view.state.sliceDoc(node.to, node.to + 2);
+            if (afterMark !== ' [') {
+              decorations.push(
+                Decoration.replace({
+                  widget: new BulletWidget(),
+                }).range(node.from, node.to)
+              );
             }
           }
           break;
@@ -387,9 +385,8 @@ function buildLivePreviewDecorations(view: EditorView): DecorationSet {
             );
           }
 
-          // Replace "- [ ]" or "- [x]" with a clickable checkbox widget when cursor is not on this line
-          if (!cursorOnNode) {
-            // Extend range to hide the "- " before the marker
+          // Always replace "- [ ]" or "- [x]" with a clickable checkbox widget
+          {
             const replaceFrom = node.from >= 2 && view.state.sliceDoc(node.from - 2, node.from) === '- '
               ? node.from - 2
               : node.from;

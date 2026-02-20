@@ -22,7 +22,7 @@ export function FileTreeItem({
   onDelete,
   onRename,
 }: FileTreeItemProps) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(node.name !== 'Archived');
   const [showContext, setShowContext] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const contextRef = useRef<HTMLDivElement>(null);
