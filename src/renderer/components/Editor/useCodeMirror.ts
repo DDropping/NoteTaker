@@ -9,6 +9,7 @@ import { createMarkdownExtension } from './extensions/markdownSetup';
 import { createEditorTheme } from './extensions/theme';
 import { wikiLinkPlugin } from './extensions/wikiLinks';
 import { livePreviewPlugin } from './extensions/livePreview';
+import { hangingIndentPlugin } from './extensions/hangingIndent';
 
 const themeCompartment = new Compartment();
 const languageCompartment = new Compartment();
@@ -54,6 +55,7 @@ export function useCodeMirror({
           themeCompartment.of(createEditorTheme(isDark)),
 
           livePreviewPlugin,
+          hangingIndentPlugin,
           wikiLinkPlugin,
 
           EditorView.updateListener.of((update) => {

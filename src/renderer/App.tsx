@@ -9,7 +9,7 @@ import { SettingsModal } from './components/Settings/SettingsModal';
 
 function AppContent() {
   const { theme } = useTheme();
-  const { state, dispatch, openFile, refreshFileTree } = useApp();
+  const { state, dispatch, openFile, closeTab, refreshFileTree, currentFile } = useApp();
 
   useEffect(() => {
     async function init() {
@@ -19,6 +19,7 @@ function AppContent() {
 
         await refreshFileTree();
 
+        // Always open/create today's daily note
         const dailyNote = await window.api.openDailyNote();
         dispatch({
           type: 'OPEN_FILE',
@@ -27,6 +28,31 @@ function AppContent() {
             content: dailyNote.content,
           },
         });
+
+        // Restore previously open tabs
+        if (config.openTabs && config.openTabs.length > 0) {
+          for (const tabPath of config.openTabs) {
+            if (tabPath === dailyNote.relativePath) continue; // already opened
+            try {
+              const { content } = await window.api.readFile(tabPath);
+              dispatch({ type: 'OPEN_FILE', payload: { relativePath: tabPath, content } });
+            } catch {
+              // File may have been deleted — skip it
+            }
+          }
+          // Re-activate the last opened file if it's among the tabs
+          if (config.lastOpenedFile) {
+            const allTabPaths = [dailyNote.relativePath, ...config.openTabs];
+            if (allTabPaths.includes(config.lastOpenedFile)) {
+              try {
+                const { content } = await window.api.readFile(config.lastOpenedFile);
+                dispatch({ type: 'OPEN_FILE', payload: { relativePath: config.lastOpenedFile, content } });
+              } catch {
+                // Fall back to daily note — already active
+              }
+            }
+          }
+        }
 
         // Refresh tree again after daily note creation
         await refreshFileTree();
@@ -75,6 +101,12 @@ function AppContent() {
               if (input) input.focus();
             }, 100);
             break;
+          case 'w':
+            e.preventDefault();
+            if (currentFile) {
+              closeTab(currentFile);
+            }
+            break;
           case ',':
             e.preventDefault();
             dispatch({ type: 'TOGGLE_SETTINGS' });
@@ -85,7 +117,7 @@ function AppContent() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.sidebarVisible, dispatch, openFile, refreshFileTree]);
+  }, [state.sidebarVisible, dispatch, openFile, closeTab, currentFile, refreshFileTree]);
 
   return (
     <div

@@ -6,11 +6,13 @@ import { useCodeMirror } from './useCodeMirror';
 
 export function Editor() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { state, dispatch, openFile, refreshFileTree } = useApp();
+  const { state, dispatch, openFile, refreshFileTree, currentFile, currentContent, isDirty } = useApp();
   const { theme } = useTheme();
   const { scheduleSave, saveImmediately, setBaseline } = useAutoSave();
-  const currentFileRef = useRef(state.currentFile);
-  currentFileRef.current = state.currentFile;
+  const currentFileRef = useRef(currentFile);
+  currentFileRef.current = currentFile;
+
+  const prevFileRef = useRef<string | null>(null);
 
   const handleContentChange = useCallback(
     (content: string) => {
@@ -44,45 +46,52 @@ export function Editor() {
     onWikiLinkClick: handleWikiLinkClick,
   });
 
-  // When the current file changes, load its content into CodeMirror
+  // When the active tab changes, save previous tab and load new content
   useEffect(() => {
     const view = viewRef.current;
-    if (!view || !state.currentFile) return;
 
-    setBaseline(state.currentContent);
+    // Save the previous tab if it changed
+    if (prevFileRef.current && prevFileRef.current !== currentFile && view) {
+      const editorContent = view.state.doc.toString();
+      saveImmediately(prevFileRef.current, editorContent);
+    }
 
-    // Replace the entire document with the new file's content
-    view.dispatch({
-      changes: {
-        from: 0,
-        to: view.state.doc.length,
-        insert: state.currentContent,
-      },
-    });
-  }, [state.currentFile]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Load new tab content into CodeMirror
+    if (view && currentFile) {
+      setBaseline(currentContent);
+      view.dispatch({
+        changes: {
+          from: 0,
+          to: view.state.doc.length,
+          insert: currentContent,
+        },
+      });
+    }
+
+    prevFileRef.current = currentFile;
+  }, [currentFile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save immediately before window unload
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (state.currentFile && state.isDirty) {
-        saveImmediately(state.currentFile, state.currentContent);
+      if (currentFile && isDirty) {
+        saveImmediately(currentFile, currentContent);
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [state.currentFile, state.isDirty, state.currentContent, saveImmediately]);
+  }, [currentFile, isDirty, currentContent, saveImmediately]);
 
   return (
     <div style={styles.wrapper}>
-      {/* Always render the editor container so CodeMirror can mount */}
       <div
         ref={containerRef}
         style={{
           ...styles.editor,
-          display: state.currentFile ? 'block' : 'none',
+          display: currentFile ? 'block' : 'none',
         }}
       />
-      {!state.currentFile && (
+      {!currentFile && (
         <div style={styles.empty}>
           <div style={styles.emptyTitle}>NoteTaker</div>
           <div style={styles.emptyHint}>

@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useTheme } from '../../context/ThemeContext';
 
 export function TitleBar() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, currentFile } = useApp();
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -22,8 +22,8 @@ export function TitleBar() {
           </svg>
         </button>
         <span style={styles.title}>
-          {state.currentFile
-            ? state.currentFile.replace(/\.md$/, '').split('/').pop()
+          {currentFile
+            ? currentFile.replace(/\.md$/, '').split('/').pop()
             : 'NoteTaker'}
         </span>
       </div>

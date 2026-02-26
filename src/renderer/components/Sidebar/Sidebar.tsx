@@ -8,7 +8,7 @@ import { FileTree } from "./FileTree";
 type NewItemMode = null | "note" | "folder";
 
 export function Sidebar() {
-  const { state, openFile, refreshFileTree } = useApp();
+  const { state, dispatch, openFile, closeTab, refreshFileTree, currentFile } = useApp();
   const { query, results, isSearching, search, clearSearch } = useSearch();
   const [newItemMode, setNewItemMode] = useState<NewItemMode>(null);
   const [newItemFolder, setNewItemFolder] = useState("");
@@ -68,12 +68,19 @@ export function Sidebar() {
       if (!confirmed) return;
       if (isFolder) {
         await window.api.deleteFolder(relativePath);
+        // Close all tabs for files within this folder
+        state.tabs
+          .filter(t => t.relativePath.startsWith(relativePath + '/'))
+          .forEach(t => closeTab(t.relativePath));
       } else {
         await window.api.deleteFile(relativePath);
+        if (state.tabs.some(t => t.relativePath === relativePath)) {
+          closeTab(relativePath);
+        }
       }
       await refreshFileTree();
     },
-    [refreshFileTree],
+    [refreshFileTree, state.tabs, closeTab],
   );
 
   const handleRename = useCallback(
@@ -88,11 +95,11 @@ export function Sidebar() {
       const newPath = [...parts, newFullName].join("/");
       await window.api.renameFile(oldPath, newPath);
       await refreshFileTree();
-      if (state.currentFile === oldPath) {
-        openFile(newPath);
+      if (state.tabs.some(t => t.relativePath === oldPath)) {
+        dispatch({ type: 'RENAME_TAB', payload: { oldPath, newPath } });
       }
     },
-    [refreshFileTree, state.currentFile, openFile],
+    [refreshFileTree, state.tabs, dispatch],
   );
 
   const handleDailyNote = useCallback(async () => {
@@ -214,7 +221,7 @@ export function Sidebar() {
           )}
           <FileTree
             tree={state.fileTree}
-            currentFile={state.currentFile}
+            currentFile={currentFile}
             onFileClick={handleFileClick}
             onNewNote={handleNewNote}
             onNewFolder={handleNewFolder}
