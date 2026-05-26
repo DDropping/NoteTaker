@@ -4,36 +4,12 @@ import { format } from 'date-fns';
 import { ensureNoteExists } from './fileService';
 import { loadConfig } from './configService';
 import { getDailyNotesDir, getArchivedDailyNotesDir } from '../utils/paths';
+import { DEFAULT_CONFIG } from '../../shared/types';
 
 const DAILY_NOTES_FOLDER = 'Daily Notes';
 
 function renderTemplate(template: string, vars: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] || `{{${key}}}`);
-}
-
-function getDefaultTemplate(): string {
-  return `{{longDate}}
-
-## Tasks
-#### High Prioirity
-- [ ]
-
-#### Med Prioirity
-- [ ]
-
-#### Low Prioirity
-- [ ]
-
-#### Completed Yesterday
-
-
-## Notes
--
-
-## Journal
--
-
-`;
 }
 
 /**
@@ -291,7 +267,10 @@ function mergeTasksIntoTemplate(
 
   if (todoSectionStart === -1) {
     // No task section in template — append one at the end
-    return renderedTemplate + '\n## Tasks\n' + carriedTodos + '\n';
+    const completedBlock = completedYesterday.trim()
+      ? `\n#### Completed Yesterday\n${completedYesterday.trim()}\n`
+      : '';
+    return renderedTemplate + '\n## Tasks\n' + carriedTodos + completedBlock + '\n';
   }
 
   const insertAt = nextSectionStart === -1 ? lines.length : nextSectionStart;
@@ -300,6 +279,9 @@ function mergeTasksIntoTemplate(
   // Check if the template task body has subheadings
   const hasTemplateContent = templateTodoBody.some(
     (l) => /^#{3,6}\s+/.test(l.trim())
+  );
+  const templateHasCompletedYesterday = templateTodoBody.some(
+    (l) => /^#{3,6}\s+Completed Yesterday\s*$/i.test(l.trim())
   );
 
   if (hasTemplateContent) {
@@ -356,13 +338,27 @@ function mergeTasksIntoTemplate(
       }
     }
 
+    // If the template has no "Completed Yesterday" heading but we have items
+    // to carry over, append one so they aren't silently dropped.
+    if (!templateHasCompletedYesterday && completedYesterday.trim()) {
+      mergedLines.push('#### Completed Yesterday');
+      mergedLines.push(...completedYesterday.trim().split('\n'));
+    }
+
     const before = lines.slice(0, todoSectionStart + 1);
     const after = lines.slice(insertAt);
     return [...before, ...mergedLines, ...after].join('\n');
   } else {
     const before = lines.slice(0, todoSectionStart + 1);
     const after = lines.slice(insertAt);
-    return [...before, carriedTodos, '', ...after].join('\n');
+    const body: string[] = [];
+    if (carriedTodos.trim()) body.push(carriedTodos);
+    if (completedYesterday.trim()) {
+      body.push('#### Completed Yesterday');
+      body.push(completedYesterday.trim());
+    }
+    body.push('');
+    return [...before, ...body, ...after].join('\n');
   }
 }
 
@@ -416,7 +412,7 @@ export async function openOrCreateDailyNote(): Promise<{
   const relativePath = path.join(DAILY_NOTES_FOLDER, `${todayStr}.md`);
 
   const config = await loadConfig();
-  const template = config.dailyNoteTemplate || getDefaultTemplate();
+  const template = config.dailyNoteTemplate || DEFAULT_CONFIG.dailyNoteTemplate;
 
   const renderedTemplate = renderTemplate(template, {
     date: format(now, 'yyyy-MM-dd'),

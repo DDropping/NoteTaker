@@ -6,23 +6,27 @@ import { useCodeMirror } from './useCodeMirror';
 
 export function Editor() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { state, dispatch, openFile, refreshFileTree, currentFile, currentContent, isDirty } = useApp();
+  const { dispatch, openFile, refreshFileTree, currentFile, currentContent, isDirty } = useApp();
   const { theme } = useTheme();
   const { scheduleSave, saveImmediately, setBaseline } = useAutoSave();
   const currentFileRef = useRef(currentFile);
   currentFileRef.current = currentFile;
 
   const prevFileRef = useRef<string | null>(null);
+  const isLoadingRef = useRef(false);
 
   const handleContentChange = useCallback(
     (content: string) => {
-      dispatch({ type: 'SET_CONTENT', payload: content });
+      // Skip programmatic content replacements (tab switches)
+      if (isLoadingRef.current) return;
+
       const file = currentFileRef.current;
       if (file) {
-        dispatch({ type: 'SET_SAVE_STATUS', payload: 'unsaved' });
+        dispatch({ type: 'SET_CONTENT', payload: { relativePath: file, content } });
+        dispatch({ type: 'SET_SAVE_STATUS', payload: { relativePath: file, status: 'unsaved' } });
         scheduleSave(file, content);
         setTimeout(() => {
-          dispatch({ type: 'SET_SAVE_STATUS', payload: 'saved' });
+          dispatch({ type: 'SET_SAVE_STATUS', payload: { relativePath: file, status: 'saved' } });
         }, 1200);
       }
     },
@@ -59,6 +63,7 @@ export function Editor() {
     // Load new tab content into CodeMirror
     if (view && currentFile) {
       setBaseline(currentContent);
+      isLoadingRef.current = true;
       view.dispatch({
         changes: {
           from: 0,
@@ -66,6 +71,7 @@ export function Editor() {
           insert: currentContent,
         },
       });
+      isLoadingRef.current = false;
     }
 
     prevFileRef.current = currentFile;

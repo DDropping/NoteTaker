@@ -11,18 +11,21 @@ interface AppState {
 }
 
 type AppAction =
-  | { type: 'OPEN_FILE'; payload: { relativePath: string; content: string } }
-  | { type: 'SET_CONTENT'; payload: string }
+  | { type: 'OPEN_FILE'; payload: { relativePath: string; content: string; openedManually?: boolean } }
+  | { type: 'SET_CONTENT'; payload: { relativePath: string; content: string } }
   | { type: 'SET_FILE_TREE'; payload: FileNode[] }
   | { type: 'SET_DIRTY'; payload: boolean }
   | { type: 'TOGGLE_SIDEBAR' }
   | { type: 'SET_CONFIG'; payload: AppConfig }
   | { type: 'TOGGLE_SETTINGS' }
-  | { type: 'SET_SAVE_STATUS'; payload: 'saved' | 'saving' | 'unsaved' }
+  | { type: 'SET_SAVE_STATUS'; payload: { relativePath: string; status: 'saved' | 'saving' | 'unsaved' } }
   | { type: 'CLOSE_TAB'; payload: string }
+  | { type: 'CLOSE_OTHER_DAILY_NOTES'; payload: { keep: string } }
   | { type: 'SWITCH_TAB'; payload: string }
   | { type: 'REORDER_TABS'; payload: { fromIndex: number; toIndex: number } }
   | { type: 'RENAME_TAB'; payload: { oldPath: string; newPath: string } };
+
+const DAILY_NOTE_PATH_RE = /^Daily Notes\/(Archived\/)?\d{4}-\d{2}-\d{2}\.md$/;
 
 const initialState: AppState = {
   tabs: [],
@@ -36,26 +39,43 @@ const initialState: AppState = {
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'OPEN_FILE': {
-      const { relativePath, content } = action.payload;
+      const { relativePath, content, openedManually } = action.payload;
       const existingIndex = state.tabs.findIndex(t => t.relativePath === relativePath);
       if (existingIndex >= 0) {
         const updatedTabs = state.tabs.map((t, i) =>
-          i === existingIndex ? { ...t, content, isDirty: false, saveStatus: 'saved' as const } : t
+          i === existingIndex
+            ? {
+                ...t,
+                content,
+                isDirty: false,
+                saveStatus: 'saved' as const,
+                // Promote to manual if the user opens an existing tab manually;
+                // never demote (a manual tab stays manual).
+                openedManually: openedManually || t.openedManually,
+              }
+            : t
         );
         return { ...state, tabs: updatedTabs, activeTabPath: relativePath };
       }
       const activeIndex = state.tabs.findIndex(t => t.relativePath === state.activeTabPath);
       const insertAt = activeIndex >= 0 ? activeIndex + 1 : state.tabs.length;
-      const newTab: TabInfo = { relativePath, content, isDirty: false, saveStatus: 'saved' };
+      const newTab: TabInfo = {
+        relativePath,
+        content,
+        isDirty: false,
+        saveStatus: 'saved',
+        openedManually: openedManually ?? false,
+      };
       const newTabs = [...state.tabs.slice(0, insertAt), newTab, ...state.tabs.slice(insertAt)];
       return { ...state, tabs: newTabs, activeTabPath: relativePath };
     }
     case 'SET_CONTENT': {
+      const { relativePath, content } = action.payload;
       return {
         ...state,
         tabs: state.tabs.map(t =>
-          t.relativePath === state.activeTabPath
-            ? { ...t, content: action.payload, isDirty: true, saveStatus: 'unsaved' as const }
+          t.relativePath === relativePath
+            ? { ...t, content, isDirty: true, saveStatus: 'unsaved' as const }
             : t
         ),
       };
@@ -79,13 +99,29 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'TOGGLE_SETTINGS':
       return { ...state, settingsOpen: !state.settingsOpen };
     case 'SET_SAVE_STATUS': {
+      const { relativePath: targetPath, status } = action.payload;
       return {
         ...state,
         tabs: state.tabs.map(t =>
-          t.relativePath === state.activeTabPath
-            ? { ...t, saveStatus: action.payload }
+          t.relativePath === targetPath
+            ? { ...t, saveStatus: status }
             : t
         ),
+      };
+    }
+    case 'CLOSE_OTHER_DAILY_NOTES': {
+      const { keep } = action.payload;
+      const newTabs = state.tabs.filter(t => {
+        if (t.relativePath === keep) return true;
+        if (t.openedManually) return true;
+        return !DAILY_NOTE_PATH_RE.test(t.relativePath);
+      });
+      if (newTabs.length === state.tabs.length) return state;
+      const stillActive = newTabs.some(t => t.relativePath === state.activeTabPath);
+      return {
+        ...state,
+        tabs: newTabs,
+        activeTabPath: stillActive ? state.activeTabPath : keep,
       };
     }
     case 'CLOSE_TAB': {
@@ -132,7 +168,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
 interface AppContextType {
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
-  openFile: (relativePath: string) => Promise<void>;
+  openFile: (relativePath: string, opts?: { manual?: boolean }) => Promise<void>;
   closeTab: (relativePath: string) => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   refreshFileTree: () => Promise<void>;
@@ -168,11 +204,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const isDirty = activeTab?.isDirty ?? false;
   const saveStatus = activeTab?.saveStatus ?? 'saved';
 
-  const openFile = useCallback(async (relativePath: string) => {
+  const openFile = useCallback(async (relativePath: string, opts?: { manual?: boolean }) => {
     try {
       const { content } = await window.api.readFile(relativePath);
-      dispatch({ type: 'OPEN_FILE', payload: { relativePath, content } });
-      window.api.writeConfig({ lastOpenedFile: relativePath });
+      dispatch({
+        type: 'OPEN_FILE',
+        payload: { relativePath, content, openedManually: opts?.manual ?? false },
+      });
+      window.api.writeConfig({ lastOpenedFile: relativePath }).catch((err) => {
+        console.error('Failed to persist lastOpenedFile:', err);
+      });
     } catch (err) {
       console.error('Failed to open file:', err);
     }
@@ -201,7 +242,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const tabKeys = state.tabs.map(t => t.relativePath).join('\0');
     if (tabKeys !== prevTabKeysRef.current) {
       prevTabKeysRef.current = tabKeys;
-      window.api.writeConfig({ openTabs: state.tabs.map(t => t.relativePath) });
+      window.api.writeConfig({ openTabs: state.tabs.map(t => t.relativePath) }).catch((err) => {
+        console.error('Failed to persist openTabs:', err);
+      });
     }
   }, [state.tabs]);
 
