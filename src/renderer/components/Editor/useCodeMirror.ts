@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { EditorState, Compartment } from '@codemirror/state';
+import { EditorState, Compartment, Prec } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from '@codemirror/commands';
 import { searchKeymap } from '@codemirror/search';
@@ -10,6 +10,7 @@ import { createEditorTheme } from './extensions/theme';
 import { wikiLinkPlugin } from './extensions/wikiLinks';
 import { livePreviewPlugin } from './extensions/livePreview';
 import { hangingIndentPlugin } from './extensions/hangingIndent';
+import { listEnter } from './extensions/listEnter';
 
 const themeCompartment = new Compartment();
 const languageCompartment = new Compartment();
@@ -63,6 +64,10 @@ export function useCodeMirror({
               onContentChangeRef.current(update.state.doc.toString());
             }
           }),
+
+          // Higher precedence than @codemirror/lang-markdown's Prec.high Enter
+          // binding (insertNewlineContinueMarkup), so empty-list-item handling wins.
+          Prec.highest(keymap.of([{ key: 'Enter', run: listEnter }])),
 
           keymap.of([
             { key: 'Tab', run: indentMore },
