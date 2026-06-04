@@ -67,16 +67,17 @@ export function Sidebar() {
       const confirmed = confirm(`Delete "${relativePath}"?`);
       if (!confirmed) return;
       if (isFolder) {
-        await window.api.deleteFolder(relativePath);
-        // Close all tabs for files within this folder
+        // Close any open tabs for files within this folder before deleting
         state.tabs
           .filter(t => t.relativePath.startsWith(relativePath + '/'))
           .forEach(t => closeTab(t.relativePath));
+        await window.api.deleteFolder(relativePath);
       } else {
-        await window.api.deleteFile(relativePath);
+        // Close the tab for this file before deleting
         if (state.tabs.some(t => t.relativePath === relativePath)) {
           closeTab(relativePath);
         }
+        await window.api.deleteFile(relativePath);
       }
       await refreshFileTree();
     },
