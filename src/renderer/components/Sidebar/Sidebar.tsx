@@ -106,8 +106,11 @@ export function Sidebar() {
   const handleDailyNote = useCallback(async () => {
     const result = await window.api.openDailyNote();
     await refreshFileTree();
-    openFile(result.relativePath);
-  }, [refreshFileTree, openFile]);
+    await openFile(result.relativePath);
+    if (result.isNew) {
+      dispatch({ type: 'CLOSE_OTHER_DAILY_NOTES', payload: { keep: result.relativePath } });
+    }
+  }, [refreshFileTree, openFile, dispatch]);
 
   const handleNewItemKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {

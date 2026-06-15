@@ -56,6 +56,12 @@ function AppContent() {
 
         // Refresh tree again after daily note creation
         await refreshFileTree();
+
+        // If today's note was just created, close any stale daily notes that
+        // were restored from the previous session.
+        if (dailyNote.isNew) {
+          dispatch({ type: 'CLOSE_OTHER_DAILY_NOTES', payload: { keep: dailyNote.relativePath } });
+        }
       } catch (err) {
         console.error('Init failed:', err);
       }
