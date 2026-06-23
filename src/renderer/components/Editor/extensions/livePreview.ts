@@ -54,17 +54,19 @@ class BulletWidget extends WidgetType {
   }
 }
 
-const COPY_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-const CHECK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+const COPY_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const CHECK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
 class CodeBlockCopyWidget extends WidgetType {
-  constructor(readonly code: string) {
+  constructor(readonly code: string, readonly inline = false) {
     super();
   }
 
   toDOM(): HTMLElement {
     const wrapper = document.createElement('span');
-    wrapper.className = 'cm-code-block-copy-wrapper';
+    wrapper.className = this.inline
+      ? 'cm-code-block-copy-wrapper cm-code-block-copy-wrapper-inline'
+      : 'cm-code-block-copy-wrapper';
 
     const button = document.createElement('button');
     button.className = 'cm-code-block-copy';
@@ -85,7 +87,7 @@ class CodeBlockCopyWidget extends WidgetType {
   }
 
   eq(other: CodeBlockCopyWidget) {
-    return other.code === this.code;
+    return other.code === this.code && other.inline === this.inline;
   }
 
   ignoreEvent() {
@@ -273,19 +275,24 @@ function buildLivePreviewDecorations(view: EditorView): DecorationSet {
             );
           }
 
-          if (!cursorOnNode) {
-            // Extract code content (lines between fences)
-            const codeLines: string[] = [];
-            for (let l = nodeStartLine + 1; l < nodeEndLine; l++) {
-              codeLines.push(doc.line(l).text);
-            }
-            const codeContent = codeLines.join('\n');
+          // Extract code content (lines between fences)
+          const codeLines: string[] = [];
+          for (let l = nodeStartLine + 1; l < nodeEndLine; l++) {
+            codeLines.push(doc.line(l).text);
+          }
+          const codeContent = codeLines.join('\n');
 
+          const openLine = doc.line(nodeStartLine);
+          decorations.push(
+            Decoration.line({ class: 'cm-code-block-open' }).range(openLine.from)
+          );
+          const closeLine = doc.line(nodeEndLine);
+          decorations.push(
+            Decoration.line({ class: 'cm-code-block-close' }).range(closeLine.from)
+          );
+
+          if (!cursorOnNode) {
             // Opening fence line: replace content with copy widget
-            const openLine = doc.line(nodeStartLine);
-            decorations.push(
-              Decoration.line({ class: 'cm-code-block-open' }).range(openLine.from)
-            );
             if (openLine.to > openLine.from) {
               decorations.push(
                 Decoration.replace({
@@ -295,15 +302,20 @@ function buildLivePreviewDecorations(view: EditorView): DecorationSet {
             }
 
             // Closing fence line: replace content with nothing
-            const closeLine = doc.line(nodeEndLine);
-            decorations.push(
-              Decoration.line({ class: 'cm-code-block-close' }).range(closeLine.from)
-            );
             if (closeLine.to > closeLine.from) {
               decorations.push(
                 Decoration.replace({}).range(closeLine.from, closeLine.to)
               );
             }
+          } else {
+            // While editing, keep the fence text visible but still show the
+            // copy button at the end of the opening fence line.
+            decorations.push(
+              Decoration.widget({
+                widget: new CodeBlockCopyWidget(codeContent, true),
+                side: 1,
+              }).range(openLine.to)
+            );
           }
           break;
         }

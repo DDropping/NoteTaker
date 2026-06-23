@@ -155,7 +155,7 @@ export function createEditorTheme(isDark: boolean): Extension {
       },
       '.cm-code-block': {
         fontFamily: '"Source Code Pro", "Fira Code", "Courier New", Courier, monospace',
-        fontSize: '0.9em',
+        fontSize: '1em',
         backgroundColor: isDark ? '#181825' : '#f5f5f5',
         borderRadius: '0',
       },
@@ -172,13 +172,17 @@ export function createEditorTheme(isDark: boolean): Extension {
         width: '100%',
         justifyContent: 'flex-end',
       },
+      '.cm-code-block-copy-wrapper-inline': {
+        width: 'auto',
+        float: 'right',
+      },
       '.cm-code-block-copy': {
         appearance: 'none',
         background: 'transparent',
         border: 'none',
         cursor: 'pointer',
         color: isDark ? '#6c7086' : '#999999',
-        padding: '0 2px',
+        padding: '4px 6px',
         borderRadius: '4px',
         opacity: '0.6',
         transition: 'opacity 0.15s',
