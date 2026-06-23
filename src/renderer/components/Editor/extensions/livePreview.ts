@@ -283,33 +283,55 @@ function buildLivePreviewDecorations(view: EditorView): DecorationSet {
           const codeContent = codeLines.join('\n');
 
           const openLine = doc.line(nodeStartLine);
-          decorations.push(
-            Decoration.line({ class: 'cm-code-block-open' }).range(openLine.from)
-          );
           const closeLine = doc.line(nodeEndLine);
-          decorations.push(
-            Decoration.line({ class: 'cm-code-block-close' }).range(closeLine.from)
-          );
+          const hasContent = nodeEndLine > nodeStartLine + 1;
 
-          if (!cursorOnNode) {
-            // Opening fence line: replace content with copy widget
+          if (!cursorOnNode && hasContent) {
+            // Not editing: collapse the blank ``` fence lines so they take up
+            // no vertical space. We hide the fence text within each line (a
+            // plugin-supplied replace must not span line breaks) and give the
+            // line a class that collapses its height. The first/last code
+            // lines get the rounded corners instead.
+            const firstCodeLine = doc.line(nodeStartLine + 1);
+            const lastCodeLine = doc.line(nodeEndLine - 1);
+            decorations.push(
+              Decoration.line({ class: 'cm-code-block-fence-hidden' }).range(openLine.from)
+            );
+            decorations.push(
+              Decoration.line({ class: 'cm-code-block-fence-hidden' }).range(closeLine.from)
+            );
             if (openLine.to > openLine.from) {
               decorations.push(
-                Decoration.replace({
-                  widget: new CodeBlockCopyWidget(codeContent),
-                }).range(openLine.from, openLine.to)
+                Decoration.replace({}).range(openLine.from, openLine.to)
               );
             }
-
-            // Closing fence line: replace content with nothing
             if (closeLine.to > closeLine.from) {
               decorations.push(
                 Decoration.replace({}).range(closeLine.from, closeLine.to)
               );
             }
+            decorations.push(
+              Decoration.line({ class: 'cm-code-block-open' }).range(firstCodeLine.from)
+            );
+            decorations.push(
+              Decoration.line({ class: 'cm-code-block-close' }).range(lastCodeLine.from)
+            );
+            // Float the copy button at the top-right of the block.
+            decorations.push(
+              Decoration.widget({
+                widget: new CodeBlockCopyWidget(codeContent, true),
+                side: 1,
+              }).range(firstCodeLine.from)
+            );
           } else {
-            // While editing, keep the fence text visible but still show the
-            // copy button at the end of the opening fence line.
+            // Editing (or an empty block): keep the fence lines visible and
+            // show the copy button at the end of the opening fence line.
+            decorations.push(
+              Decoration.line({ class: 'cm-code-block-open' }).range(openLine.from)
+            );
+            decorations.push(
+              Decoration.line({ class: 'cm-code-block-close' }).range(closeLine.from)
+            );
             decorations.push(
               Decoration.widget({
                 widget: new CodeBlockCopyWidget(codeContent, true),

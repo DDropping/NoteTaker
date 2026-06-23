@@ -158,14 +158,19 @@ export function createEditorTheme(isDark: boolean): Extension {
         fontSize: '1em',
         backgroundColor: isDark ? '#181825' : '#f5f5f5',
         borderRadius: '0',
+        paddingLeft: '12px',
+        paddingRight: '12px',
       },
       '.cm-code-block-open': {
         borderRadius: '6px 6px 0 0',
-        minHeight: '8px',
+        paddingTop: '8px',
       },
       '.cm-code-block-close': {
         borderRadius: '0 0 6px 6px',
-        minHeight: '8px',
+        paddingBottom: '8px',
+      },
+      '.cm-code-block-fence-hidden': {
+        display: 'none',
       },
       '.cm-code-block-copy-wrapper': {
         display: 'inline-flex',
